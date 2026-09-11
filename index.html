@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>MES Hidden Coding Calculator</title>
+<style>
+:root {
+  --bg:#0d1117; --card:#161b22; --border:#30363d;
+  --text:#e6edf3; --dim:#8b949e; --accent:#58a6ff;
+  --green:#3fb950; --red:#f85149; --yellow:#d29922;
+  --bit-on:#238636; --bit-off:#21262d;
+  --changed:#1f6feb; --changed-bg:rgba(31,111,235,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  padding:20px 16px;padding-bottom:env(safe-area-inset-bottom,20px);
+  -webkit-text-size-adjust:100%;}
+.container{max-width:1000px;margin:0 auto;padding:0 8px;}
+h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;color:var(--accent);}
+.subtitle{font-size:13px;text-align:center;color:var(--dim);margin-bottom:24px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+label.section{font-size:24px;color:var(--accent);display:block;margin-bottom:10px;font-weight:800;letter-spacing:1px;}
+/* Checkbox list */
+.feat-item{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:12px;border-radius:8px;cursor:pointer;
+  transition:background .15s;
+  user-select:none;-webkit-tap-highlight-color:transparent;
+  min-height:48px;
+}
+.feat-item:active{background:rgba(255,255,255,.06);}
+.feat-item:hover{background:rgba(255,255,255,.04);}
+.feat-item.selected{background:rgba(63,185,80,.08);}
+.feat-cb{
+  width:22px;height:22px;border-radius:5px;border:2px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;margin-top:2px;
+}
+.feat-item.selected .feat-cb{background:var(--green);border-color:var(--green);}
+.feat-cb svg{width:14px;height:14px;display:none;}
+.feat-item.selected .feat-cb svg{display:block;}
+.feat-label{font-size:14px;line-height:1.5;}
+.feat-opt{margin-top:6px;padding-left:34px;}
+.feat-opt select{
+  width:100%;max-width:300px;padding:10px 14px;font-size:14px;border-radius:6px;
+  border:2px solid var(--border);background:var(--bg);color:var(--text);
+  appearance:none;cursor:pointer;outline:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+}
+.feat-opt select:focus{border-color:var(--accent);}
+#featList{
+  max-height:calc(52px * 5 + 4px * 5);
+  overflow-y:scroll;
+  scrollbar-width:thin;
+  scrollbar-color:var(--dim) var(--bg);
+  columns:1;
+}
+#featList::-webkit-scrollbar{width:8px;}
+#featList::-webkit-scrollbar-track{background:var(--bg);border-radius:4px;}
+#featList::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px;border:1px solid var(--bg);}
+/* Desktop: feature list in2 columns */
+@media(min-width:769px){
+  #featList{
+    columns:2;
+    column-gap:4px;
+    max-height:calc(52px * 5 + 4px * 5);
+  }
+  #featList>div{break-inside:avoid;}
+}
+/* Byte area: grid on desktop */
+#byteArea{
+  display:flex;flex-direction:column;gap:0;
+}
+@media(min-width:769px){
+  #byteArea{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(400px,1fr));
+    gap:14px;
+    align-items:start;
+  }
+  #byteArea>.card:last-child{
+    grid-column:1/-1;
+  }
+}
+.selected-count{
+  display:inline-block;margin-left:8px;padding:2px 10px;border-radius:10px;
+  font-size:12px;font-weight:600;background:var(--green);color:#000;
+}
+/* Byte input */
+.input-row{display:flex;gap:16px;align-items:center;margin-top:8px;}
+.input-label{font-size:16px;color:var(--accent);font-weight:700;white-space:nowrap;}
+.hex-input{
+  flex:1;font-size:26px;font-weight:700;font-family:'SF Mono','Fira Code',monospace;
+  background:var(--bg);border:2px solid var(--border);border-radius:8px;
+  color:var(--green);text-align:center;padding:12px;
+  text-transform:uppercase;letter-spacing:2px;outline:none;transition:border-color .2s;
+  max-width:140px;-webkit-appearance:none;
+}
+.hex-input:focus{border-color:var(--accent);}
+/* Bit grid */
+.bit-compare{margin-top:14px;}
+.bit-row-label{font-size:12px;color:var(--dim);margin-bottom:6px;font-weight:600;}
+.bit-grid{display:flex;gap:4px;margin-bottom:10px;}
+.bit-cell{
+  flex:1;text-align:center;border-radius:6px;padding:10px 2px;
+  font-family:monospace;font-size:18px;font-weight:800;transition:all .15s;
+  min-width:0;
+}
+.bit-cell.orig{background:var(--bit-off);color:#484f58;}
+.bit-cell.orig.on{background:#1a2332;color:var(--dim);}
+.bit-cell.mod{background:var(--bit-off);color:#484f58;cursor:pointer;}
+.bit-cell.mod.on{background:var(--bit-on);color:#fff;cursor:pointer;}
+.bit-cell.mod:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(88,166,255,.3);}
+.bit-cell.mod:active{transform:scale(.95);}
+.bit-cell.changed{box-shadow:0 0 0 2px var(--changed);background:var(--changed-bg)!important;}
+.bit-cell.changed.on{background:rgba(31,111,235,.3)!important;color:#fff!important;}
+.bit-pos{font-size:10px;color:#484f58;margin-top:3px;}
+/* Result */
+.arrow{font-size:24px;color:var(--dim);padding:0 4px;}
+.result-big{
+  text-align:center;margin:14px 0 8px;padding:14px;
+  background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.3);border-radius:8px;
+}
+.result-big-label{font-size:13px;color:var(--dim);margin-bottom:8px;}
+.result-big-val{font-size:32px;font-weight:800;color:var(--green);font-family:monospace;letter-spacing:2px;}
+.result-row{
+  display:flex;gap:20px;justify-content:center;align-items:baseline;
+  flex-wrap:wrap;margin-top:6px;
+}
+.result-item{text-align:center;}
+.result-val{font-size:20px;font-weight:700;font-family:monospace;}
+.r-bin{color:var(--accent);font-size:15px;letter-spacing:2px;}
+.result-note{font-size:13px;color:var(--yellow);margin-top:10px;text-align:center;line-height:1.5;}
+.reset-btn{
+  display:inline-block;margin-top:8px;padding:8px 18px;border-radius:6px;
+  border:1px solid var(--yellow);background:transparent;color:var(--yellow);
+  font-size:13px;cursor:pointer;transition:all .15s;
+}
+.reset-btn:hover{background:rgba(210,153,34,.15);}
+.reset-btn:active{background:rgba(210,153,34,.25);}
+.merged-tag{
+  display:inline-block;margin-top:6px;padding:3px 10px;border-radius:4px;
+  font-size:12px;background:rgba(88,166,255,.15);color:var(--accent);
+}
+.feature-desc{font-size:13px;color:var(--dim);margin-top:8px;padding:10px;background:var(--bg);border-radius:8px;line-height:1.6;}
+.bit-detail{margin:10px 0;padding:10px 14px;background:var(--bg);border-radius:8px;}
+.bit-detail-item{font-size:13px;color:var(--dim);line-height:2;font-family:monospace;}
+.bit-detail-item b{color:var(--accent);font-weight:700;}
+.bit-detail-item .val1{color:var(--green);font-weight:700;}
+.bit-detail-item .val0{color:var(--red);font-weight:700;}
+.bit-detail-item .src{color:#484f58;font-family:-apple-system,sans-serif;font-size:12px;}
+.empty-hint{text-align:center;color:var(--dim);padding:20px 0 12px;font-size:14px;}
+/* Placeholder skeleton */
+.placeholder-card{
+  background:var(--card);border:1px dashed var(--border);border-radius:12px;
+  padding:18px;margin-bottom:14px;opacity:.45;
+}
+.placeholder-title{
+  font-size:20px;font-weight:700;color:var(--dim);margin-bottom:10px;
+}
+.placeholder-line{
+  height:12px;border-radius:4px;background:var(--border);margin-bottom:10px;
+  opacity:.5;
+}
+.placeholder-line.short{width:60%;}
+.placeholder-line.med{width:80%;}
+.placeholder-line.long{width:95%;}
+.placeholder-bits{
+  display:flex;gap:4px;margin:12px 0;
+}
+.placeholder-bit{
+  flex:1;height:40px;border-radius:6px;background:var(--bit-off);opacity:.5;
+}
+.placeholder-result{
+  height:60px;border-radius:8px;background:var(--bg);border:1px solid var(--border);
+  opacity:.4;margin-top:12px;
+}
+.quick-row{display:flex;gap:10px;margin-top:16px;}
+.quick-btn{
+  flex:1;padding:14px;border-radius:8px;border:1px solid var(--border);
+  background:var(--bg);color:var(--dim);font-size:14px;cursor:pointer;
+  text-align:center;transition:all .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.quick-btn:hover{border-color:var(--accent);color:var(--accent);}
+.quick-btn:active{background:rgba(255,255,255,.06);}
+
+/* ======== Tablet ======== */
+@media(max-width:768px){
+  body{padding:16px 12px;padding-bottom:env(safe-area-inset-bottom,16px);}
+  .card{padding:16px;}
+}
+
+/* ======== Phone ======== */
+@media(max-width:480px){
+  body{padding:12px 10px;padding-bottom:env(safe-area-inset-bottom,12px);}
+  h1{font-size:19px;}
+  .subtitle{font-size:12px;margin-bottom:18px;}
+  .card{padding:14px 12px;border-radius:10px;}
+
+  /* Feature list: bigger tap targets */
+  .feat-item{padding:14px 12px;min-height:52px;gap:12px;}
+  .feat-cb{width:24px;height:24px;border-radius:6px;}
+  .feat-label{font-size:15px;line-height:1.5;}
+  .feat-opt{padding-left:36px;}
+  .feat-opt select{padding:12px 14px;font-size:14px;}
+
+  /* Byte title */
+  label.section{font-size:20px;}
+
+  /* Input: stack on very small screens */
+  .input-row{flex-direction:column;align-items:stretch;gap:8px;}
+  .input-label{font-size:14px;text-align:center;}
+  .hex-input{
+    max-width:100%;font-size:28px;padding:14px;
+    -webkit-appearance:none;
+  }
+
+  /* Bit grid: taller for finger taps */
+  .bit-grid{gap:3px;}
+  .bit-cell{padding:12px 1px;font-size:17px;border-radius:8px;}
+  .bit-pos{font-size:9px;}
+
+  /* Results */
+  .result-big-val{font-size:28px;letter-spacing:1px;}
+  .result-val{font-size:18px;}
+  .r-bin{font-size:14px;letter-spacing:1px;}
+  .arrow{font-size:20px;}
+
+  /* Buttons: stack */
+  .quick-row{flex-direction:column;gap:8px;}
+  .quick-btn{padding:16px;font-size:15px;}
+  .reset-btn{padding:12px 20px;font-size:14px;}
+}
+
+/* ======== Very small (320px) ======== */
+@media(max-width:360px){
+  h1{font-size:17px;}
+  .card{padding:12px 10px;}
+  label.section{font-size:18px;}
+  .hex-input{font-size:24px;padding:12px;}
+  .bit-cell{padding:10px 0;font-size:15px;}
+  .result-big-val{font-size:24px;}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔧 MES Hidden Coding</h1>
+  <p class="subtitle">Porsche MES 隐藏功能代码计算器 · 支持多选合并</p>
+
+  <div class="card">
+    <label class="section">选择隐藏功能（可多选）<span id="selCount"></span></label>
+    <div id="featList"></div>
+  </div>
+
+  <div id="byteArea"></div>
+  <div id="emptyHint" class="empty-hint">↑ 请在上方勾选需要开启的隐藏功能</div>
+</div>
+
+<script>
+const FEATURES = [
+  {cat:'遥控启动',desc:'遥控钥匙远程启动车辆',bytes:[{addr:108,bits:[{bit:0,val:1}]}]},
+  {cat:'遥控寻车',desc:'长按遥控钥匙鸣笛闪灯找车',bytes:[{addr:126,bits:[{bit:7,val:1}]}]},
+  {cat:'20款开始race模式对应的中控画面和性能记录',desc:'解锁中控 Race 画面和额外性能记录',bytes:[{addr:66,bits:[{bit:5,val:1}]}]},
+  {cat:'加前雷达',desc:'后雷达升级为前后雷达',bytes:[{addr:118,bits:[{bit:4,val:1}]}]},
+  {cat:'锁车鸣笛',desc:'锁车时发出提示音',bytes:[{addr:119,bits:[{bit:0,val:1},{bit:1,val:0},{bit:2,val:0},{bit:3,val:1},{bit:4,val:1},{bit:5,val:1},{bit:6,val:1},{bit:7,val:0}],fixed:0x79}]},
+  {cat:'额外雨刮',desc:'开启隐藏雨刮档位',bytes:[{addr:126,bits:[{bit:5,val:1}]}]},
+  {cat:'遥控车窗',desc:'遥控钥匙控制车窗升降',bytes:[{addr:58,bits:[{bit:1,val:1}]}]},
+  {cat:'关闭大灯清洗',desc:'关闭大灯自动清洗功能',bytes:[{addr:59,bits:[{bit:2,val:1}]}]},
+  {cat:'拨片进空档',desc:'美版车开启拨片进空档功能（bit4=0为开启）',bytes:[{addr:156,bits:[{bit:4,val:0}]}]},
+  {cat:'转向辅助灯原地点亮',desc:'国六L2转向辅助灯原地可亮',bytes:[{addr:149,bits:[],fixed:0x04},{addr:59,bits:[{bit:7,val:1}]}]},
+  {cat:'驾驶员疲劳报警 (DDA)',desc:'bit0+1组合：0=关 1=仪表 2=中控 3=双提醒',bytes:[{addr:166,bits:[{bit:0,src:'opt'},{bit:1,src:'opt'}]}],options:[{label:'关闭',bits:{0:0,1:0}},{label:'仅仪表提醒 (IPC)',bits:{0:1,1:0}},{label:'仅中控提醒 (VP)',bits:{0:0,1:1}},{label:'仪表+中控双提醒',bits:{0:1,1:1}}]},
+  {cat:'交通堵塞辅助 (TJA)',desc:'低速拥堵半自动驾驶辅助',bytes:[{addr:166,bits:[{bit:7,val:1}]}]},
+  {cat:'高速公路辅助 (HAS)',desc:'高速驾驶辅助功能',bytes:[{addr:166,bits:[{bit:2,val:1}]}]},
+  {cat:'智能速度控制 (ISC)',desc:'含激活(byte166-bit3)和菜单(byte177-bit6)两个开关',bytes:[{addr:166,bits:[{bit:3,val:1}]},{addr:177,bits:[{bit:6,val:1}]}],subLabels:['ISC 激活','ISC 菜单']},
+  {cat:'车道辅助 (LKA)',desc:'bit4+5组合：0=关 1=震动 2=震动+辅助 3=主动保持',bytes:[{addr:166,bits:[{bit:4,src:'opt'},{bit:5,src:'opt'}]}],options:[{label:'关闭',bits:{4:0,5:0}},{label:'震动提醒',bits:{4:1,5:0}},{label:'震动+辅助（出线回拉）',bits:{4:0,5:1}},{label:'主动车道保持（持续力矩）',bits:{4:1,5:1}}]},
+  {cat:'交通标志识别 (TSR)',desc:'摄像头识别道路限速等标志',bytes:[{addr:159,bits:[{bit:6,val:1}]}]},
+  {cat:'交通标志识别补偿设置',desc:'菜单中开启速度偏移补偿',bytes:[{addr:202,bits:[{bit:0,val:1}]}]},
+  {cat:'盲点监控 (BSM)',desc:'变道盲区后视镜亮灯警示',bytes:[{addr:166,bits:[{bit:6,val:1}]}]}
+];
+
+const listEl = document.getElementById('featList');
+const area = document.getElementById('byteArea');
+const emptyHint = document.getElementById('emptyHint');
+const selCount = document.getElementById('selCount');
+
+let selected = new Set();
+let optChoices = {};
+let originals = {};
+let manualModified = {};
+
+// Build feature list
+FEATURES.forEach((f,i) => {
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <div class="feat-item" data-idx="${i}" onclick="toggleFeat(${i})">
+      <div class="feat-cb"><svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="feat-label">${f.cat}</div>
+    </div>
+    ${f.options ? `<div class="feat-opt" id="opt${i}" style="display:none"><select id="os${i}" onchange="onOptChange(${i},this.value)">${f.options.map((o,j)=>`<option value="${j}">${o.label}</option>`).join('')}</select></div>` : ''}`;
+  listEl.appendChild(div);
+});
+
+function toggleFeat(idx){
+  if(selected.has(idx)) selected.delete(idx);
+  else { selected.add(idx); if(FEATURES[idx].options && optChoices[idx]===undefined) optChoices[idx]=0; }
+  originals = {}; manualModified = {};
+  updateFeatUI(); renderBytes();
+}
+
+function onOptChange(idx, val){
+  optChoices[idx] = +val;
+  originals = {}; manualModified = {};
+  renderBytes();
+}
+
+function updateFeatUI(){
+  document.querySelectorAll('.feat-item').forEach(el => {
+    el.classList.toggle('selected', selected.has(+el.dataset.idx));
+  });
+  FEATURES.forEach((f,i) => {
+    const optEl = document.getElementById('opt'+i);
+    if(optEl) optEl.style.display = selected.has(i) ? '' : 'none';
+  });
+  selCount.innerHTML = selected.size > 0 ? `<span class="selected-count">${selected.size} 项</span>` : '';
+}
+
+function hex2(v){ return v.toString(16).toUpperCase().padStart(2,'0'); }
+
+function calcModified(orig, byteCfg, optBits){
+  let v = orig;
+  if(byteCfg.fixed !== undefined){ v = byteCfg.fixed; }
+  byteCfg.bits.forEach(b => {
+    let bv = b.src === 'opt' ? (optBits?optBits[b.bit]:0) : b.val;
+    if(bv===undefined) bv=0;
+    if(bv===1) v|=(1<<b); else v&=~(1<<b);
+  });
+  return v & 0xFF;
+}
+
+function collectMerged(){
+  const merged = new Map();
+  selected.forEach(fi => {
+    const feat = FEATURES[fi];
+    const optBits = feat.options ? feat.options[optChoices[fi]||0].bits : null;
+    feat.bytes.forEach((bcfg,bi) => {
+      const addr = bcfg.addr;
+      if(!merged.has(addr)) merged.set(addr,{addr,bits:{},bitSources:{},fixed:null,fixedCount:0,sources:[]});
+      const m = merged.get(addr);
+      const fLabel = feat.subLabels ? feat.subLabels[bi] : feat.cat;
+      m.sources.push(fLabel);
+      if(bcfg.fixed !== undefined){ m.fixed=bcfg.fixed; m.fixedCount++; }
+      bcfg.bits.forEach(b => {
+        const bv = b.src==='opt'?(optBits?optBits[b.bit]:0):b.val;
+        if(bv!==undefined){
+          m.bits[b.bit]=bv;
+          if(!m.bitSources[b.bit]) m.bitSources[b.bit]=[];
+          m.bitSources[b.bit].push(fLabel);
+        }
+      });
+    });
+  });
+  return Array.from(merged.values());
+}
+
+function computeAuto(m, origNum){
+  let mod = origNum;
+  if(m.fixed !== null) mod = m.fixed;
+  Object.keys(m.bits).forEach(b => {
+    const bv = m.bits[b];
+    if(bv===1) mod|=(1<<b); else mod&=~(1<<b);
+  });
+  return mod & 0xFF;
+}
+
+function toggleBit(addr, bit){
+  const m = collectMerged().find(x=>x.addr===addr);
+  if(!m) return;
+  const orig = originals[addr];
+  if(!orig||isNaN(parseInt(orig,16))) return;
+  const origNum = parseInt(orig,16);
+  const autoMod = computeAuto(m, origNum);
+  const curFinal = manualModified[addr] !== undefined ? manualModified[addr] : autoMod;
+  const newFinal = (curFinal ^ (1 << bit)) & 0xFF;
+  if(newFinal === autoMod) delete manualModified[addr];
+  else manualModified[addr] = newFinal;
+  updateByteDisplay(addr);
+}
+
+function resetManual(addr){
+  delete manualModified[addr];
+  updateByteDisplay(addr);
+}
+
+function renderBytes(){
+  if(selected.size===0){
+    emptyHint.style.display='';
+    area.innerHTML = `
+      <div class="card" style="grid-column:1/-1"><div class="feature-desc" style="opacity:.35">• 选择功能后将在此显示修改说明</div></div>
+      <div class="placeholder-card">
+        <div class="placeholder-title">Byte ???</div>
+        <div class="placeholder-line long"></div>
+        <div class="placeholder-line med"></div>
+        <div class="placeholder-line short"></div>
+        <div class="placeholder-bits">${'<div class="placeholder-bit"></div>'.repeat(8)}</div>
+        <div class="placeholder-bits">${'<div class="placeholder-bit"></div>'.repeat(8)}</div>
+        <div class="placeholder-result"></div>
+      </div>
+      <div class="placeholder-card">
+        <div class="placeholder-title">Byte ???</div>
+        <div class="placeholder-line long"></div>
+        <div class="placeholder-line med"></div>
+        <div class="placeholder-bits">${'<div class="placeholder-bit"></div>'.repeat(8)}</div>
+        <div class="placeholder-bits">${'<div class="placeholder-bit"></div>'.repeat(8)}</div>
+        <div class="placeholder-result"></div>
+      </div>`;
+    return;
+  }
+  emptyHint.style.display='none';
+
+  const mergedList = collectMerged();
+  let html = '';
+
+  let descs = [];
+  selected.forEach(fi => { if(FEATURES[fi].desc) descs.push(FEATURES[fi].desc); });
+  if(descs.length) html += `<div class="card" style="grid-column:1/-1"><div class="feature-desc">${descs.map(d=>'• '+d).join('<br>')}</div></div>`;
+
+  mergedList.forEach(m => {
+    const orig = originals[m.addr];
+    const hasOrig = orig!==undefined && orig!=='' && !isNaN(parseInt(orig,16));
+    const isShared = m.sources.length > 1;
+
+    html += `<div class="card">`;
+    html += `<label class="section">Byte ${m.addr}</label>`;
+    if(isShared) html += `<div class="merged-tag">🔗 合并 ${m.sources.join(' + ')}</div>`;
+
+    const bitKeys = Object.keys(m.bits).map(Number).sort((a,b)=>b-a);
+    if(bitKeys.length){
+      html += `<div class="bit-detail">`;
+      if(m.fixed!==null) html += `<div class="bit-detail-item">整体设为 <b>${hex2(m.fixed)}</b></div>`;
+      bitKeys.forEach(b => {
+        const val = m.bits[b];
+        const srcs = (m.bitSources[b]||[]).join('、');
+        html += `<div class="bit-detail-item">bit${b} → <span class="${val?'val1':'val0'}">${val}</span> <span class="src">（${srcs}）</span></div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `<div class="input-row">`;
+    html += `<span class="input-label">请输入Byte原值</span>`;
+    html += `<input class="hex-input" id="hi${m.addr}" type="text" maxlength="2" placeholder="00" inputmode="hex" autocomplete="off" spellcheck="false" data-addr="${m.addr}" value="${hasOrig ? hex2(parseInt(orig,16)) : ''}">`;
+    html += `</div>`;
+
+    html += `<div id="dw${m.addr}"></div>`;
+    html += `</div>`;
+  });
+
+  if(mergedList.length){
+    html += `<div class="card"><div class="quick-row">
+      <button class="quick-btn" onclick="copyAll()">📋 复制所有修改</button>
+      <button class="quick-btn" onclick="clearAll()">🔄 清除所有输入</button>
+    </div></div>`;
+  }
+
+  area.innerHTML = html;
+
+  mergedList.forEach(m => {
+    const inp = document.getElementById('hi'+m.addr);
+    if(inp){inp.addEventListener('input',onHexInput);inp.addEventListener('blur',onHexBlur);}
+    updateByteDisplay(m.addr);
+  });
+}
+
+function updateByteDisplay(addr){
+  const mergedList = collectMerged();
+  const m = mergedList.find(x=>x.addr===addr);
+  if(!m) return;
+
+  const orig = originals[addr];
+  const hasOrig = orig!==undefined && orig!=='' && !isNaN(parseInt(orig,16));
+  const wrap = document.getElementById('dw'+addr);
+  if(!wrap) return;
+
+  if(!hasOrig){ wrap.innerHTML=''; return; }
+
+  const origNum = parseInt(orig,16)||0;
+  const autoMod = computeAuto(m, origNum);
+  const finalMod = manualModified[addr] !== undefined ? manualModified[addr] : autoMod;
+  const hasManual = manualModified[addr] !== undefined;
+
+  let h = '';
+
+  h += `<div class="bit-compare">`;
+  h += `<div class="bit-row-label">原值 Bit</div><div class="bit-grid">`;
+  for(let b=7;b>=0;b--){
+    const on = (origNum>>b)&1;
+    const changed = ((origNum>>b)&1) !== ((finalMod>>b)&1);
+    h += `<div class="bit-cell orig${on?' on':''}${changed?' changed':''}"><div>${on}</div><div class="bit-pos">b${b}</div></div>`;
+  }
+  h += `</div>`;
+
+  h += `<div class="bit-row-label">改后 Bit（点击翻转）</div><div class="bit-grid">`;
+  for(let b=7;b>=0;b--){
+    const on = (finalMod>>b)&1;
+    const changed = ((origNum>>b)&1) !== on;
+    h += `<div class="bit-cell mod${on?' on':''}${changed?' changed':''}" onclick="toggleBit(${addr},${b})"><div>${on}</div><div class="bit-pos">b${b}</div></div>`;
+  }
+  h += `</div>`;
+  h += `</div>`;
+
+  if(hasManual){
+    h += `<div style="text-align:center"><button class="reset-btn" onclick="resetManual(${addr})">↩ 恢复自动计算值</button></div>`;
+  }
+
+  const ox = hex2(origNum);
+  const mx = hex2(finalMod);
+  const ob = origNum.toString(2).padStart(8,'0');
+  const mb = finalMod.toString(2).padStart(8,'0');
+
+  h += `<div class="result-big"><div class="result-big-label">修改结果</div>`;
+  h += `<div class="result-big-val">${ox} → ${mx}</div>`;
+  h += `<div class="result-row" style="margin-top:10px;">`;
+  h += `<div class="result-item"><div class="result-val r-bin">${ob}</div></div>`;
+  h += `<span class="arrow">→</span>`;
+  h += `<div class="result-item"><div class="result-val r-bin">${mb}</div></div>`;
+  h += `</div></div>`;
+
+  if(finalMod === origNum && !hasManual) h += `<div class="result-note">✅ 当前值已包含所有选中功能的设置，无需修改</div>`;
+  if(hasManual) h += `<div class="result-note">⚠️ 已手动修改 bit，与自动计算值不同</div>`;
+
+  wrap.innerHTML = h;
+}
+
+function onHexInput(e){
+  const addr = +e.target.dataset.addr;
+  originals[addr] = e.target.value;
+  delete manualModified[addr];
+  updateByteDisplay(addr);
+}
+function onHexBlur(e){
+  const addr = +e.target.dataset.addr;
+  const v = parseInt(e.target.value,16);
+  if(!isNaN(v)){ e.target.value=hex2(v); originals[addr]=e.target.value; }
+  delete manualModified[addr];
+  updateByteDisplay(addr);
+}
+function setPreset(addr, val){
+  originals[addr] = hex2(val);
+  manualModified = {};
+  renderBytes();
+}
+function clearAll(){
+  originals = {}; manualModified = {};
+  renderBytes();
+}
+function copyAll(){
+  const mergedList = collectMerged();
+  let lines = [];
+  mergedList.forEach(m => {
+    const orig = originals[m.addr];
+    if(!orig||isNaN(parseInt(orig,16))) return;
+    const origNum = parseInt(orig,16);
+    const autoMod = computeAuto(m, origNum);
+    const finalMod = manualModified[m.addr]!==undefined ? manualModified[m.addr] : autoMod;
+    lines.push(`Byte${m.addr}: ${hex2(origNum)} → ${hex2(finalMod)} (${m.sources.join('+')})`);
+  });
+  if(!lines.length) return;
+  navigator.clipboard.writeText(lines.join('\n')).then(()=>{
+    const btn = document.querySelector('.quick-btn');
+    btn.textContent='✅ 已复制';setTimeout(()=>btn.textContent='📋 复制所有修改',1500);
+  }).catch(()=>prompt('复制以下内容:',lines.join('\n')));
+}
+
+updateFeatUI(); renderBytes();
+</script>
+</body>
+</html>
