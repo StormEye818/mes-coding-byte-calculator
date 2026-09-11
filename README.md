@@ -1,6 +1,6 @@
 # 🔧 MES Hidden Coding Calculator
 
-**Porsche MES 隐藏功能代码计算器** — 支持多选合并、Bit 位可视化、手动调整
+**Alfa Romeo MES 隐藏功能代码计算器** — 支持多选合并、Bit 位可视化、手动调整
 
 🔗 **在线使用：** https://stormeye818.github.io/mes-coding-byte-calculator/
 
@@ -105,7 +105,7 @@ xdg-open index.html      # Linux
 
 ## ⚠️ 注意事项
 
-- 本工具基于保时捷 MES（Matco Engineering Solution）隐藏编码逻辑整理
+- 本工具基于阿尔法罗密欧 MES（Matco Engineering Solution）隐藏编码逻辑整理
 - 修改前请记录原值，以便恢复
 - 不同车型/年款的 Byte 位置可能有差异，请以实车为准
 - 部分功能需要硬件支持（如前雷达需要有硬件安装）
