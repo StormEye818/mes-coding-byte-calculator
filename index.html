@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alfa Romeo MES Hidden Coding Calculator</title>
 <style>
 :root {
@@ -295,13 +295,13 @@ FEATURES.forEach((f,i) => {
 function toggleFeat(idx){
   if(selected.has(idx)) selected.delete(idx);
   else { selected.add(idx); if(FEATURES[idx].options && optChoices[idx]===undefined) optChoices[idx]=0; }
-  originals = {}; manualModified = {};
+  manualModified = {};
   updateFeatUI(); renderBytes();
 }
 
 function onOptChange(idx, val){
   optChoices[idx] = +val;
-  originals = {}; manualModified = {};
+  manualModified = {};
   renderBytes();
 }
 
@@ -317,17 +317,8 @@ function updateFeatUI(){
 }
 
 function hex2(v){ return v.toString(16).toUpperCase().padStart(2,'0'); }
+function saveState(){ try{ localStorage.setItem('mesCodingState', JSON.stringify({originals:originals,optChoices:optChoices})); }catch(e){} }
 
-function calcModified(orig, byteCfg, optBits){
-  let v = orig;
-  if(byteCfg.fixed !== undefined){ v = byteCfg.fixed; }
-  byteCfg.bits.forEach(b => {
-    let bv = b.src === 'opt' ? (optBits?optBits[b.bit]:0) : b.val;
-    if(bv===undefined) bv=0;
-    if(bv===1) v|=(1<<b); else v&=~(1<<b);
-  });
-  return v & 0xFF;
-}
 
 function collectMerged(){
   const merged = new Map();
@@ -336,15 +327,15 @@ function collectMerged(){
     const optBits = feat.options ? feat.options[optChoices[fi]||0].bits : null;
     feat.bytes.forEach((bcfg,bi) => {
       const addr = bcfg.addr;
-      if(!merged.has(addr)) merged.set(addr,{addr,bits:{},bitSources:{},fixed:null,fixedCount:0,sources:[]});
+      if(!merged.has(addr)) merged.set(addr,{addr,bits:{},bitSources:{},fixed:null,fixedCount:0,fixedConflict:false,bitConflict:false,sources:[]});
       const m = merged.get(addr);
       const fLabel = feat.subLabels ? feat.subLabels[bi] : feat.cat;
       m.sources.push(fLabel);
-      if(bcfg.fixed !== undefined){ m.fixed=bcfg.fixed; m.fixedCount++; }
-      bcfg.bits.forEach(b => {
+      if(bcfg.fixed !== undefined){ if(m.fixed!==null&&m.fixed!==bcfg.fixed)m.fixedConflict=true; m.fixed=bcfg.fixed; m.fixedCount++; }
+      (bcfg.bits||[]).forEach(b => {
         const bv = b.src==='opt'?(optBits?optBits[b.bit]:0):b.val;
         if(bv!==undefined){
-          m.bits[b.bit]=bv;
+          if(m.bits[b.bit]!==undefined&&m.bits[b.bit]!==bv)m.bitConflict=true; m.bits[b.bit]=bv;
           if(!m.bitSources[b.bit]) m.bitSources[b.bit]=[];
           m.bitSources[b.bit].push(fLabel);
         }
@@ -375,12 +366,12 @@ function toggleBit(addr, bit){
   const newFinal = (curFinal ^ (1 << bit)) & 0xFF;
   if(newFinal === autoMod) delete manualModified[addr];
   else manualModified[addr] = newFinal;
-  updateByteDisplay(addr);
+  updateByteDisplay(addr); saveState();
 }
 
 function resetManual(addr){
   delete manualModified[addr];
-  updateByteDisplay(addr);
+  updateByteDisplay(addr); saveState();
 }
 
 function renderBytes(){
@@ -425,18 +416,18 @@ function renderBytes(){
     const bitKeys = Object.keys(m.bits).map(Number).sort((a,b)=>b-a);
     if(bitKeys.length){
       html += `<div class="bit-detail">`;
-      if(m.fixed!==null) html += `<div class="bit-detail-item">整体设为 <b>${hex2(m.fixed)}</b></div>`;
+      if(m.fixed!==null) html += `<div class="bit-detail-item">整体设为 <b>${hex2(m.fixed)}</b></div>`; if(m.fixedConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 多个功能对同一 Byte 设置了不同的整体值，以最后一个为准，请确认</div>`;
       bitKeys.forEach(b => {
         const val = m.bits[b];
         const srcs = (m.bitSources[b]||[]).join('、');
         html += `<div class="bit-detail-item">bit${b} → <span class="${val?'val1':'val0'}">${val}</span> <span class="src">（${srcs}）</span></div>`;
       });
-      html += `</div>`;
+      if(m.bitConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 同一 bit 被多个功能设置为相反值，以最后一个为准，请确认</div>`; html += `</div>`;
     }
 
     html += `<div class="input-row">`;
     html += `<span class="input-label">请输入Byte原值</span>`;
-    html += `<input class="hex-input" id="hi${m.addr}" type="text" maxlength="2" placeholder="00" inputmode="hex" autocomplete="off" spellcheck="false" data-addr="${m.addr}" value="${hasOrig ? hex2(parseInt(orig,16)) : ''}">`;
+    html += `<input class="hex-input" id="hi${m.addr}" type="text" maxlength="2" placeholder="00" autocomplete="off" spellcheck="false" data-addr="${m.addr}" value="${hasOrig ? hex2(parseInt(orig,16)) : ''}">`;
     html += `</div>`;
 
     html += `<div id="dw${m.addr}"></div>`;
@@ -445,7 +436,7 @@ function renderBytes(){
 
   if(mergedList.length){
     html += `<div class="card"><div class="quick-row">
-      <button class="quick-btn" onclick="copyAll()">📋 复制所有修改</button>
+      <button class="quick-btn" id="copyBtn" onclick="copyAll()">📋 复制所有修改</button>
       <button class="quick-btn" onclick="clearAll()">🔄 清除所有输入</button>
     </div></div>`;
   }
@@ -523,17 +514,17 @@ function onHexInput(e){
   const addr = +e.target.dataset.addr;
   originals[addr] = e.target.value;
   delete manualModified[addr];
-  updateByteDisplay(addr);
+  updateByteDisplay(addr); saveState();
 }
 function onHexBlur(e){
   const addr = +e.target.dataset.addr;
-  const v = parseInt(e.target.value,16);
-  if(!isNaN(v)){ e.target.value=hex2(v); originals[addr]=e.target.value; }
+  const raw=e.target.value.trim(); const v = parseInt(raw,16);
+  if(raw===''){ delete originals[addr]; } else if(!isNaN(v)&&v>=0&&v<=255){ e.target.value=hex2(v); originals[addr]=e.target.value; } else { e.target.value=''; delete originals[addr]; e.target.placeholder='输入无效'; setTimeout(()=>{e.target.placeholder='00'},1200); }
   delete manualModified[addr];
   updateByteDisplay(addr);
 }
 function clearAll(){
-  originals = {}; manualModified = {};
+  originals = {}; manualModified = {}; saveState();
   renderBytes();
 }
 function copyAll(){
@@ -547,13 +538,14 @@ function copyAll(){
     const finalMod = manualModified[m.addr]!==undefined ? manualModified[m.addr] : autoMod;
     lines.push(`Byte${m.addr}: ${hex2(origNum)} → ${hex2(finalMod)} (${m.sources.join('+')})`);
   });
-  if(!lines.length) return;
+  if(!lines.length){ const b=document.getElementById('copyBtn'); if(b){ b.textContent='⚠️ 请先输入Byte原值'; setTimeout(()=>{b.textContent='📋 复制所有修改'},1500); } return; }
   navigator.clipboard.writeText(lines.join('\n')).then(()=>{
-    const btn = document.querySelector('.quick-btn');
+    const btn = document.getElementById('copyBtn');
     btn.textContent='✅ 已复制';setTimeout(()=>btn.textContent='📋 复制所有修改',1500);
   }).catch(()=>prompt('复制以下内容:',lines.join('\n')));
 }
 
+try{const st=JSON.parse(localStorage.getItem('mesCodingState')||'null');if(st){if(st.originals)originals=st.originals;if(st.optChoices)optChoices=st.optChoices;Object.keys(optChoices).forEach(i=>{const sel=document.getElementById('os'+i);if(sel)sel.value=optChoices[i]})}}catch(e){}
 updateFeatUI(); renderBytes();
 </script>
 </body>
