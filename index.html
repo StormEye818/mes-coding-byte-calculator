@@ -63,7 +63,7 @@ label.section{font-size:24px;color:var(--accent);display:block;margin-bottom:10p
 #featList::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px;border:1px solid var(--bg);}
 /* Desktop: feature list in 2 columns */
 @media(min-width:769px){
-  #featList{columns:2;column-gap:8px;max-height:calc(52px * 5 + 4px * 5);}
+  #featList{display:grid;grid-template-columns:repeat(2,1fr);column-gap:8px;max-height:calc(52px * 5 + 4px * 5);}
   #featList>div{break-inside:avoid;}
 }
 /* Byte area */
