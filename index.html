@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alfa Romeo MES Hidden Coding Calculator</title>
+<meta name="description" content="Alfa Romeo MES 隐藏功能编码字节计算器：多选功能自动合并到同一 Byte，逐位对比原值与改后值，支持手动微调与结果复制。">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A7%3C/text%3E%3C/svg%3E">
 <style>
 :root {
   --bg:#0d1117; --card:#161b22; --border:#30363d;
@@ -21,6 +24,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .container{max-width:1000px;width:100%;margin:0 auto;padding:0 8px;}
 h1{font-size:22px;font-weight:700;text-align:center;margin-bottom:6px;color:var(--accent);}
 .subtitle{font-size:13px;text-align:center;color:var(--dim);margin-bottom:24px;}
+.disclaimer{font-size:12px;text-align:center;color:var(--yellow);
+  background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);border-radius:8px;
+  padding:8px 12px;margin:-14px 0 20px;line-height:1.7;overflow-wrap:break-word;}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;
   padding:18px;margin-bottom:14px;overflow:hidden;}
 label.section{font-size:24px;color:var(--accent);display:block;margin-bottom:10px;font-weight:800;letter-spacing:1px;}
@@ -63,7 +69,7 @@ label.section{font-size:24px;color:var(--accent);display:block;margin-bottom:10p
 #featList::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px;border:1px solid var(--bg);}
 /* Desktop: feature list in 2 columns */
 @media(min-width:769px){
-  #featList{display:grid;grid-template-columns:repeat(2,1fr);column-gap:8px;max-height:calc(52px * 5 + 4px * 5);}
+  #featList{display:grid;grid-template-columns:repeat(2,1fr);column-gap:8px;max-height:none;overflow:visible;}
   #featList>div{break-inside:avoid;}
 }
 /* Byte area */
@@ -239,6 +245,7 @@ label.section{font-size:24px;color:var(--accent);display:block;margin-bottom:10p
 <div class="container">
   <h1>🔧 MES Hidden Coding</h1>
   <p class="subtitle">Alfa Romeo MES 隐藏功能代码计算器 · 支持多选合并</p>
+  <p class="disclaimer">⚠️ 写入前请截图记录原值 · 每次只改一个 Byte · 标注「整体设为」的字节会清零其余位 · 仅供学习参考，风险自担</p>
 
   <div class="card">
     <label class="section">选择隐藏功能（可多选）<span id="selCount"></span></label>
@@ -296,13 +303,13 @@ function toggleFeat(idx){
   if(selected.has(idx)) selected.delete(idx);
   else { selected.add(idx); if(FEATURES[idx].options && optChoices[idx]===undefined) optChoices[idx]=0; }
   manualModified = {};
-  updateFeatUI(); renderBytes();
+  updateFeatUI(); renderBytes(); saveState();
 }
 
 function onOptChange(idx, val){
   optChoices[idx] = +val;
   manualModified = {};
-  renderBytes();
+  renderBytes(); saveState();
 }
 
 function updateFeatUI(){
@@ -317,7 +324,7 @@ function updateFeatUI(){
 }
 
 function hex2(v){ return v.toString(16).toUpperCase().padStart(2,'0'); }
-function saveState(){ try{ localStorage.setItem('mesCodingState', JSON.stringify({originals:originals,optChoices:optChoices})); }catch(e){} }
+function saveState(){ try{ localStorage.setItem('mesCodingState', JSON.stringify({originals:originals,optChoices:optChoices,selected:Array.from(selected)})); }catch(e){} }
 
 
 function collectMerged(){
@@ -414,15 +421,17 @@ function renderBytes(){
     if(isShared) html += `<div class="merged-tag">🔗 合并 ${m.sources.join(' + ')}</div>`;
 
     const bitKeys = Object.keys(m.bits).map(Number).sort((a,b)=>b-a);
-    if(bitKeys.length){
+    if(m.fixed!==null || bitKeys.length){
       html += `<div class="bit-detail">`;
-      if(m.fixed!==null) html += `<div class="bit-detail-item">整体设为 <b>${hex2(m.fixed)}</b></div>`; if(m.fixedConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 多个功能对同一 Byte 设置了不同的整体值，以最后一个为准，请确认</div>`;
+      if(m.fixed!==null) html += `<div class="bit-detail-item">整体设为 <b>${hex2(m.fixed)}</b> <span class="src">（该 Byte 其余位将被清零，请先记录原值）</span></div>`;
+      if(m.fixedConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 多个功能对同一 Byte 设置了不同的整体值，以最后一个为准，请确认</div>`;
       bitKeys.forEach(b => {
         const val = m.bits[b];
         const srcs = (m.bitSources[b]||[]).join('、');
         html += `<div class="bit-detail-item">bit${b} → <span class="${val?'val1':'val0'}">${val}</span> <span class="src">（${srcs}）</span></div>`;
       });
-      if(m.bitConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 同一 bit 被多个功能设置为相反值，以最后一个为准，请确认</div>`; html += `</div>`;
+      if(m.bitConflict) html += `<div class="bit-detail-item" style="color:var(--red)">⚠️ 同一 bit 被多个功能设置为相反值，以最后一个为准，请确认</div>`;
+      html += `</div>`;
     }
 
     html += `<div class="input-row">`;
@@ -519,7 +528,7 @@ function onHexInput(e){
 function onHexBlur(e){
   const addr = +e.target.dataset.addr;
   const raw=e.target.value.trim(); const v = parseInt(raw,16);
-  if(raw===''){ delete originals[addr]; } else if(!isNaN(v)&&v>=0&&v<=255){ e.target.value=hex2(v); originals[addr]=e.target.value; } else { e.target.value=''; delete originals[addr]; e.target.placeholder='输入无效'; setTimeout(()=>{e.target.placeholder='00'},1200); }
+  if(raw===''){ delete originals[addr]; } else if(/^[0-9a-fA-F]{1,2}$/.test(raw)){ e.target.value=hex2(v); originals[addr]=e.target.value; } else { e.target.value=''; delete originals[addr]; e.target.placeholder='输入无效'; setTimeout(()=>{e.target.placeholder='00'},1200); }
   delete manualModified[addr];
   updateByteDisplay(addr);
 }
@@ -545,7 +554,7 @@ function copyAll(){
   }).catch(()=>prompt('复制以下内容:',lines.join('\n')));
 }
 
-try{const st=JSON.parse(localStorage.getItem('mesCodingState')||'null');if(st){if(st.originals)originals=st.originals;if(st.optChoices)optChoices=st.optChoices;Object.keys(optChoices).forEach(i=>{const sel=document.getElementById('os'+i);if(sel)sel.value=optChoices[i]})}}catch(e){}
+try{const st=JSON.parse(localStorage.getItem('mesCodingState')||'null');if(st){if(st.originals)originals=st.originals;if(st.optChoices)optChoices=st.optChoices;if(Array.isArray(st.selected))st.selected.forEach(i=>{if(i>=0&&i<FEATURES.length)selected.add(+i)});Object.keys(optChoices).forEach(i=>{const sel=document.getElementById('os'+i);if(sel)sel.value=optChoices[i]})}}catch(e){}
 updateFeatUI(); renderBytes();
 </script>
 </body>
